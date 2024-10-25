@@ -13,10 +13,10 @@ func GetUserStatements(userID int) ([]statement.PersonalStatement, error) {
 	return statements, err
 }
 
-func SaveStatement(statement statement.PersonalStatement) error {
+func SaveStatement(userID int, statement statement.PersonalStatement) error {
 	_, err := database.GetConnection().Exec(`
-		INSERT INTO personal_statements (content)
-		VALUES (?)
-	`, statement.Content)
+		INSERT INTO personal_statements (user_id, content)
+		VALUES ($1, $2)
+	`, userID, statement.Content)
 	return err
 }

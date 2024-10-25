@@ -33,7 +33,7 @@ func (s *APIServer) Run() error {
 
 	err := utils.InitializeSuperTokens("http://localhost:3002", "http://localhost:3000", database.GetConnection())
 	if err != nil {
-		fmt.Errorf("Failed to initialize SuperTokens: %v", err)
+		return fmt.Errorf("Failed to initialize SuperTokens: %v", err)
 	}
 
 	router := mux.NewRouter()
@@ -45,24 +45,23 @@ func (s *APIServer) Run() error {
 	go openai.Init()
 	fmt.Println("Listening on", s.addr)
 	return http.ListenAndServe(s.addr, corsMiddleware(
-		supertokens.Middleware(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-			router.ServeHTTP(rw, r)
-		}))))
+		supertokens.Middleware(router)))
 }
 
 func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(response http.ResponseWriter, r *http.Request) {
-		response.Header().Set("Access-Control-Allow-Origin", "https://localhost:3000")
-		response.Header().Set("Access-Control-Allow-Credentials", "true")
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers",
+			strings.Join(append([]string{"Content-Type", "Authorization"},
+				supertokens.GetAllCORSHeaders()...), ","))
+
 		if r.Method == "OPTIONS" {
-			// we add content-type + other headers used by SuperTokens
-			response.Header().Set("Access-Control-Allow-Headers",
-				strings.Join(append([]string{"Content-Type"},
-					supertokens.GetAllCORSHeaders()...), ","))
-			response.Header().Set("Access-Control-Allow-Methods", "*")
-			response.Write([]byte(""))
-		} else {
-			next.ServeHTTP(response, r)
+			w.WriteHeader(http.StatusOK)
+			return
 		}
+
+		next.ServeHTTP(w, r)
 	})
 }

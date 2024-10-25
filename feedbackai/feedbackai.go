@@ -4,15 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"psr/cmd/api/secrets"
 	"psr/types/feedback"
-	"strings"
+	"psr/utils/helpful/parsing"
 
 	"github.com/sashabaranov/go-openai"
 )
 
 func GenerateFeedback(personalStatement string) (feedback.FeedbackResponse, error) {
-	client := openai.NewClient(secrets.GetEnvVariable("OPEN_AI_SECRET"))
+	client := openai.NewClient("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")
 
 	prompt := fmt.Sprintf(`Analyze the following personal statement and provide detailed feedback on these aspects:
 1. Clarity
@@ -50,7 +49,6 @@ Personal Statement:
 	)
 
 	if err != nil {
-		fmt.Println("OpenAI API error:", err)
 		return feedback.FeedbackResponse{}, fmt.Errorf("OpenAI API error: %v", err)
 	}
 
@@ -60,25 +58,25 @@ Personal Statement:
 	err = json.Unmarshal([]byte(jsonResponse), &feedbackResponse)
 	if err != nil {
 		// If parsing fails, try to extract JSON from the response
-		startIndex := strings.Index(jsonResponse, "{")
-		endIndex := strings.LastIndex(jsonResponse, "}")
-		if startIndex != -1 && endIndex != -1 && endIndex > startIndex {
-			jsonResponse = jsonResponse[startIndex : endIndex+1]
-			err = json.Unmarshal([]byte(jsonResponse), &feedbackResponse)
-			if err != nil {
-				return feedback.FeedbackResponse{}, fmt.Errorf("Error parsing extracted JSON response: %v\nExtracted JSON: %s", err, jsonResponse)
-			}
-		} else {
-			return feedback.FeedbackResponse{}, fmt.Errorf("Error parsing JSON response: %v\nRaw response: %s", err, jsonResponse)
+		err = parsing.ExtractJSONToStruct(jsonResponse, &feedbackResponse)
+		if err != nil {
+			return feedback.FeedbackResponse{}, fmt.Errorf("Error extracting JSON: %v\nRaw response: %s", err, jsonResponse)
 		}
 	}
 
 	// Validate the parsed response
-	if feedbackResponse.Clarity.Rating == 0 || feedbackResponse.Structure.Rating == 0 ||
-		feedbackResponse.GrammarSpelling.Rating == 0 || feedbackResponse.Relevance.Rating == 0 ||
-		feedbackResponse.Engagement.Rating == 0 || feedbackResponse.OverallImpression.Rating == 0 {
+	if !isValidFeedbackResponse(feedbackResponse) {
 		return feedback.FeedbackResponse{}, fmt.Errorf("Invalid response format from OpenAI API")
 	}
 
 	return feedbackResponse, nil
+}
+
+func isValidFeedbackResponse(fr feedback.FeedbackResponse) bool {
+	return fr.Clarity.Rating != 0 &&
+		fr.Structure.Rating != 0 &&
+		fr.GrammarSpelling.Rating != 0 &&
+		fr.Relevance.Rating != 0 &&
+		fr.Engagement.Rating != 0 &&
+		fr.OverallImpression.Rating != 0
 }

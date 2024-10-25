@@ -5,14 +5,22 @@ import (
 	"fmt"
 	"net/http"
 
+	aidetection "psr/ai-detection"
 	"psr/database/queries"
 	"psr/feedbackai"
+	taidetection "psr/types/aidetection"
+	"psr/types/feedback"
 	statement "psr/types/personal_statement"
 
 	"github.com/gorilla/mux"
 )
 
 type Handler struct {
+}
+
+type CombinedResponse struct {
+	Feedback    feedback.FeedbackResponse      `json:"feedback"`
+	AIDetection taidetection.AIDetectionResult `json:"ai_detection"`
 }
 
 func NewHandler() *Handler {
@@ -61,20 +69,40 @@ func (h *Handler) Feedback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = queries.SaveStatement(personalStatement)
+	aiResult, err := aidetection.DetectAIContent(personalStatement.Content)
+	if err != nil {
+		fmt.Printf("Error detecting AI content: %v\n", err)
+		http.Error(w, "Failed to detect AI content", http.StatusInternalServerError)
+		return
+	}
+
+	// Save AI result
+	err = queries.SaveAIResult(1, aiResult)
+	if err != nil {
+		fmt.Printf("Error saving AI result: %v\n", err)
+		http.Error(w, "Failed to save AI result", http.StatusInternalServerError)
+		return
+	}
+
+	err = queries.SaveStatement(1, personalStatement)
 	if err != nil {
 		fmt.Printf("Error saving statement: %v\n", err)
 		http.Error(w, "Failed to save statement", http.StatusInternalServerError)
 		return
 	}
 
-	err = queries.SaveFeedback(feedbackResponse)
+	err = queries.SaveFeedback(1, feedbackResponse)
 	if err != nil {
 		fmt.Printf("Error saving feedback: %v\n", err)
 		http.Error(w, "Failed to save feedback", http.StatusInternalServerError)
 		return
 	}
 
+	combinedResponse := CombinedResponse{
+		Feedback:    feedbackResponse,
+		AIDetection: aiResult,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(feedbackResponse)
+	json.NewEncoder(w).Encode(combinedResponse)
 }
