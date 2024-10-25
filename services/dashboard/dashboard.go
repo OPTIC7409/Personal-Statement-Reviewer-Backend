@@ -3,6 +3,9 @@ package dashboard
 import (
 	"net/http"
 
+	"psr/database/queries"
+	ffeedback "psr/types/feedback"
+	statement "psr/types/personal_statement"
 	ReturnModule "psr/utils/helpful/return_module"
 
 	"github.com/gorilla/mux"
@@ -20,6 +23,27 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 }
 
 func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("id").(int) // Assuming user ID is stored in the request context
 
-	ReturnModule.SendResponse(w, "Dashboard", http.StatusOK)
+	statements, err := queries.GetUserStatements(userID)
+	if err != nil {
+		ReturnModule.SendResponse(w, "Failed to retrieve user statements", http.StatusInternalServerError)
+		return
+	}
+
+	feedback, err := queries.GetFeedbackForUserStatements(userID)
+	if err != nil {
+		ReturnModule.SendResponse(w, "Failed to retrieve feedback for user statements", http.StatusInternalServerError)
+		return
+	}
+
+	dashboardData := struct {
+		Statements []statement.PersonalStatement `json:"statements"`
+		Feedback   []ffeedback.Feedback          `json:"feedback"`
+	}{
+		Statements: statements,
+		Feedback:   feedback,
+	}
+
+	ReturnModule.SendResponse(w, dashboardData, http.StatusOK)
 }

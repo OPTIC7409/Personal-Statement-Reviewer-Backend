@@ -1,4 +1,4 @@
-package personal_swtatement
+package statement
 
 import "time"
 

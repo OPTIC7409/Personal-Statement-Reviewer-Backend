@@ -25,8 +25,12 @@ func SendResponse(w http.ResponseWriter, response any, statusCode int) {
 		discord.SendMessage(discord.ErrorLog, fmt.Sprintf("Request to %s was unsuccessful", w.Header().Get("X-Request-ID"))+" "+string(responseMarshal))
 	}
 
+	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(response)
 	_, err = w.Write(responseMarshal)
 	if err != nil {
 		pterm.Error.Println("Error writing to HTTP: ", err)

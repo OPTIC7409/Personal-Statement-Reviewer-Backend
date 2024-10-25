@@ -4,14 +4,13 @@ import (
 	"fmt"
 	api "psr/cmd/api"
 	secrets "psr/cmd/api/secrets"
-	"psr/database"
 	"psr/utils/helpful/discord"
 )
 
 func main() {
 	secrets.InitializeEnvVariables()
 
-	server := api.NewAPIServer(":3002", database.GetConnection())
+	server := api.NewAPIServer(":3002")
 
 	go func() {
 		if err := server.Run(); err != nil {

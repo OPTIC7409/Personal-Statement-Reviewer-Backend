@@ -1,127 +1,104 @@
 package database
 
 import (
-	"context"
+	"database/sql"
 	"fmt"
-	"psr/cmd/api/secrets"
-	"psr/utils/helpful/discord"
-	"time"
+	"log"
+	"path/filepath"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	_ "github.com/glebarez/go-sqlite"
 )
 
-var databaseConnection *pgxpool.Pool
-
-const (
-	PermPostNotification = 1 << iota
-)
+var db *sql.DB
 
 func InitializeDatabase() bool {
-	encodedIP := secrets.GetEnvVariable("DATABASE_IP")
-	encodedPassword := secrets.GetEnvVariable("DATABASE_PASSWORD")
-
-	if encodedIP == "" || encodedPassword == "" {
-		return false
-	}
-
-	connectionString := fmt.Sprintf("postgres://validate:%s@%s/validate", encodedPassword, encodedIP)
-
-	poolConfig, err := pgxpool.ParseConfig(connectionString)
+	dbPath := filepath.Join(".", "psr_database.db")
+	var err error
+	db, err = sql.Open("sqlite", dbPath)
 	if err != nil {
-		fmt.Println("Error parsing connection string:", err)
+		log.Printf("Error opening database: %v", err)
 		return false
 	}
 
-	poolConfig.MaxConns = 20
-	poolConfig.MinConns = 5
-	poolConfig.MaxConnLifetime = 5 * time.Minute
-	poolConfig.MaxConnIdleTime = 2 * time.Minute
-
-	databaseConnection, err = pgxpool.ConnectConfig(context.Background(), poolConfig)
-	if err != nil {
-		fmt.Println("Error connecting to the database:", err)
+	if err = db.Ping(); err != nil {
+		log.Printf("Error connecting to database: %v", err)
 		return false
 	}
 
-	fmt.Println("Connected to the database")
+	fmt.Println("Connected to the local SQLite database")
 	return true
 }
 
 func CreateTables() bool {
-	_, err := GetConnection().Exec(context.Background(), `
-		CREATE TABLE IF NOT EXISTS users (
-			id SERIAL PRIMARY KEY,
-			email VARCHAR(255) UNIQUE NOT NULL,
-			password_hash VARCHAR(255) NOT NULL,
-			name VARCHAR(100),
+	queries := []string{
+		`CREATE TABLE IF NOT EXISTS users (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			email TEXT UNIQUE NOT NULL,
+			password_hash TEXT NOT NULL,
+			name TEXT,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		);
-
-		CREATE TABLE IF NOT EXISTS personal_statements (
-			id SERIAL PRIMARY KEY,
-			user_id INT NOT NULL,
+		)`,
+		`CREATE TABLE IF NOT EXISTS personal_statements (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
 			content TEXT NOT NULL,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-		);
-
-		CREATE TABLE IF NOT EXISTS feedback (
-			id SERIAL PRIMARY KEY,
-			statement_id INT NOT NULL,
+		)`,
+		`CREATE TABLE IF NOT EXISTS feedback (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			statement_id INTEGER NOT NULL,
 			feedback_text TEXT NOT NULL,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (statement_id) REFERENCES personal_statements (id) ON DELETE CASCADE
-		);
-
-		CREATE TABLE IF NOT EXISTS feedback (
-			id SERIAL PRIMARY KEY,
-			statement_id INT NOT NULL,
-			feedback_text TEXT NOT NULL,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			FOREIGN KEY (statement_id) REFERENCES personal_statements (id) ON DELETE CASCADE
-		);
-
-		CREATE TABLE IF NOT EXISTS revisions (
-			id SERIAL PRIMARY KEY,
-			statement_id INT NOT NULL,
+		)`,
+		`CREATE TABLE IF NOT EXISTS revisions (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			statement_id INTEGER NOT NULL,
 			content TEXT NOT NULL,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (statement_id) REFERENCES personal_statements (id) ON DELETE CASCADE
-		);
-
-		CREATE TABLE IF NOT EXISTS user_profiles (
-			id SERIAL PRIMARY KEY,
-			user_id INT NOT NULL,
+		)`,
+		`CREATE TABLE IF NOT EXISTS user_profiles (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
 			bio TEXT,
-			profile_picture_url VARCHAR(255),
-			preferences JSONB,
+			profile_picture_url TEXT,
+			preferences TEXT,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-		);
-
-		CREATE TABLE IF NOT EXISTS audit_logs (
-			id SERIAL PRIMARY KEY,
-			user_id INT NOT NULL,
-			action VARCHAR(100) NOT NULL,
-			details JSONB,
+		)`,
+		`CREATE TABLE IF NOT EXISTS audit_logs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			action TEXT NOT NULL,
+			details TEXT,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-		);
-	`)
+		)`,
+	}
 
-	if err != nil {
-		discord.SendMessage(discord.ErrorLog, "Error creating tables: "+err.Error())
-		fmt.Println("Error creating tables:", err)
-		return false
+	for _, query := range queries {
+		_, err := db.Exec(query)
+		if err != nil {
+			log.Printf("Error creating table: %v", err)
+			return false
+		}
 	}
 
 	fmt.Println("Created tables")
 	return true
 }
 
-func GetConnection() *pgxpool.Pool {
-	return databaseConnection
+func GetConnection() *sql.DB {
+	return db
+}
+
+func CloseDatabase() {
+	if db != nil {
+		db.Close()
+	}
 }
