@@ -2,6 +2,7 @@ package feedback
 
 import (
 	aidetection "psr/types/aidetection"
+	"psr/types/plagiarism"
 	"time"
 )
 
@@ -42,4 +43,5 @@ type FeedbackText struct {
 type CombinedResponse struct {
 	Feedback    FeedbackText                  `json:"feedback"`
 	AIDetection aidetection.AIDetectionResult `json:"ai_detection"`
+	Plagiarism  plagiarism.PlagiarismResult   `json:"plagiarism"`
 }

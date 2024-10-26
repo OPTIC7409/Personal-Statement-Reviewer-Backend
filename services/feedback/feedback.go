@@ -6,13 +6,13 @@ import (
 	"net/http"
 	"strconv"
 
-	aidetection "psr/ai-detection"
 	"psr/database/queries"
 	"psr/feedbackai"
 	ftypes "psr/types/feedback"
 	statement "psr/types/personal_statement"
 	stypes "psr/types/personal_statement"
 	"psr/utils/JWT"
+	"psr/winston"
 
 	"github.com/gorilla/mux"
 )
@@ -67,10 +67,17 @@ func (h *Handler) Feedback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	aiResult, err := aidetection.DetectAIContent(personalStatement.Content)
+	aiResult, err := winston.DetectAIContent(personalStatement.Content)
 	if err != nil {
 		fmt.Printf("Error detecting AI content: %v\n", err)
 		http.Error(w, "Failed to detect AI content", http.StatusInternalServerError)
+		return
+	}
+
+	plagiarismResult, err := winston.CheckPlagiarism(personalStatement.Content)
+	if err != nil {
+		fmt.Printf("Error checking plagiarism: %v\n", err)
+		http.Error(w, "Failed to check plagiarism", http.StatusInternalServerError)
 		return
 	}
 
@@ -99,6 +106,7 @@ func (h *Handler) Feedback(w http.ResponseWriter, r *http.Request) {
 	combinedResponse := ftypes.CombinedResponse{
 		Feedback:    feedbackResponse,
 		AIDetection: aiResult,
+		Plagiarism:  plagiarismResult,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
