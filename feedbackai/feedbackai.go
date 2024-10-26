@@ -10,10 +10,10 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-func GenerateFeedback(personalStatement string) (feedback.FeedbackText, error) {
+func GenerateFeedback(personalStatement string, purpose string) (feedback.FeedbackText, error) {
 	client := openai.NewClient("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")
 
-	prompt := fmt.Sprintf(`Analyze the following personal statement and provide detailed feedback on these aspects:
+	prompt := fmt.Sprintf(`Analyze the following personal statement for the purpose of %s and provide detailed feedback on these aspects:
 1. Clarity
 2. Structure
 3. Grammar & Spelling
@@ -33,7 +33,7 @@ For each aspect, provide a rating out of 10 and detailed feedback. Format your r
 }
 
 Personal Statement:
-%s`, personalStatement)
+%s`, purpose, personalStatement)
 
 	resp, err := client.CreateChatCompletion(
 		context.Background(),

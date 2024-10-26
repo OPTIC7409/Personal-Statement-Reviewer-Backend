@@ -41,7 +41,8 @@ func (h *Handler) Feedback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var request struct {
-		Text string `json:"text"`
+		Text    string `json:"text"`
+		Purpose string `json:"purpose"` // Added purpose field
 	}
 
 	err := json.NewDecoder(r.Body).Decode(&request)
@@ -59,7 +60,7 @@ func (h *Handler) Feedback(w http.ResponseWriter, r *http.Request) {
 		Content: request.Text,
 	}
 
-	feedbackResponse, err := feedbackai.GenerateFeedback(personalStatement.Content)
+	feedbackResponse, err := feedbackai.GenerateFeedback(personalStatement.Content, request.Purpose) // Pass purpose to feedback generation
 	if err != nil {
 		fmt.Printf("Error generating feedback: %v\n", err)
 		http.Error(w, "Failed to generate feedback", http.StatusInternalServerError)
