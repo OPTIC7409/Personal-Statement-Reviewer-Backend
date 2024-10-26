@@ -12,6 +12,7 @@ import (
 	ftypes "psr/types/feedback"
 	statement "psr/types/personal_statement"
 	stypes "psr/types/personal_statement"
+	"psr/utils/JWT"
 
 	"github.com/gorilla/mux"
 )
@@ -26,6 +27,7 @@ func NewHandler() *Handler {
 func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/statements/feedback", http.HandlerFunc(h.Feedback)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/statements/feedback/{id}", http.HandlerFunc(h.GetFeedback)).Methods("GET")
+	router.HandleFunc("/statements/feedback", http.HandlerFunc(h.GetFeedback)).Methods("GET")
 }
 
 func (h *Handler) Feedback(w http.ResponseWriter, r *http.Request) {
@@ -110,77 +112,84 @@ type FeedbackResponse struct {
 func (h *Handler) GetFeedback(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 	if r.Method == "OPTIONS" {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 
-	vars := mux.Vars(r)
-	id := vars["id"]
-
-	if id == "" {
-		userID := 1
-		statements, err := queries.GetUserStatements(userID)
-		if err != nil {
-			fmt.Printf("Error retrieving statements: %v\n", err)
-			http.Error(w, "Failed to retrieve statements", http.StatusInternalServerError)
-			return
-		}
-
-		if len(statements) == 0 {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]string{"user does not have any": ""})
-			return
-		}
-
-		var combinedResponses []FeedbackResponse
-		for _, statement := range statements {
-			feedbackResponse, err := queries.GetFeedbackBySID(statement.ID)
-			if err != nil {
-				fmt.Printf("Error retrieving feedback for statement ID %d: %v\n", statement.ID, err)
-				continue
-			}
-
-			combinedResponses = append(combinedResponses, FeedbackResponse{
-				Statement: statement,
-				Feedback:  feedbackResponse,
-			})
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(combinedResponses)
+	userID, err := JWT.ValidateJWT(r.Header.Get("Authorization"))
+	if err != nil {
+		http.Error(w, "Invalid token", http.StatusUnauthorized)
 		return
-	} else {
-		feedbackResponse, err := queries.GetFeedbackByID(id)
+	}
+	userIDInt, err := strconv.Atoi(userID)
+	if err != nil {
+		http.Error(w, "Invalid user ID type", http.StatusBadRequest)
+		return
+	}
+
+	vars := mux.Vars(r)
+	feedbackID := vars["id"]
+
+	var feedbacks []ftypes.Feedback
+	var statements []statement.PersonalStatement
+
+	if feedbackID != "" {
+		// Fetch specific feedback
+		feedback, err := queries.GetFeedbackByID(feedbackID)
 		if err != nil {
 			fmt.Printf("Error retrieving feedback: %v\n", err)
 			http.Error(w, "Failed to retrieve feedback", http.StatusInternalServerError)
 			return
 		}
+		feedbacks = append(feedbacks, feedback)
 
-		statementID, err := strconv.Atoi(id)
+		// Fetch the statement associated with the feedback
+		statement, err := queries.GetStatementByFID(feedback.StatementID)
 		if err != nil {
-			fmt.Printf("Error converting feedback ID to int: %v\n", err)
-			http.Error(w, "Failed to convert feedback ID to int", http.StatusBadRequest)
-			return
-		}
-		statement, err := queries.GetStatementByFID(statementID)
-		if err != nil {
-			fmt.Printf("Error retrieving statement for feedback ID %s: %v\n", id, err)
+			fmt.Printf("Error retrieving statement: %v\n", err)
 			http.Error(w, "Failed to retrieve statement", http.StatusInternalServerError)
 			return
 		}
+		statements = append(statements, statement)
+	} else {
+		// Fetch all feedbacks for the user
+		userFeedbacks, err := queries.GetFeedbackForUserStatements(userIDInt)
+		if err != nil {
+			fmt.Printf("Error retrieving feedbacks: %v\n", err)
+			http.Error(w, "Failed to retrieve feedbacks", http.StatusInternalServerError)
+			return
+		}
+		feedbacks = userFeedbacks
 
-		combinedResponses := []FeedbackResponse{{
-			Statement: statement,
-			Feedback:  feedbackResponse,
-		}}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(combinedResponses)
+		// Fetch all statements for the user
+		userStatements, err := queries.GetUserStatements(userIDInt)
+		if err != nil {
+			fmt.Printf("Error retrieving statements: %v\n", err)
+			http.Error(w, "Failed to retrieve statements", http.StatusInternalServerError)
+			return
+		}
+		statements = userStatements
 	}
+
+	if len(feedbacks) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"message": "No feedbacks found for the user"})
+		return
+	}
+
+	response := struct {
+		Feedbacks  []ftypes.Feedback             `json:"feedbacks"`
+		Statements []statement.PersonalStatement `json:"statements"`
+	}{
+		Feedbacks:  feedbacks,
+		Statements: statements,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 func (h *Handler) DeleteFeedback(w http.ResponseWriter, r *http.Request) {

@@ -11,11 +11,11 @@ import (
 func GetFeedbackForUserStatements(userID int) ([]feedback.Feedback, error) {
 	var feedbacks []feedback.Feedback
 	rows, err := database.GetConnection().Query(`
-		SELECT f.id, f.statement_id, f.feedback_text, f.created_at
-		FROM feedback f
-		JOIN personal_statements ps ON f.statement_id = ps.id
-		WHERE ps.user_id = $1
-	`, userID)
+        SELECT f.id, f.statement_id, f.feedback_text, f.created_at
+        FROM feedback f
+        JOIN personal_statements ps ON f.statement_id = ps.id
+        WHERE ps.user_id = $1
+    `, userID)
 	if err != nil {
 		return nil, fmt.Errorf("Error querying feedback: %v", err)
 	}
@@ -100,9 +100,10 @@ func GetFeedbackBySID(statementID int) (feedback.Feedback, error) {
 		SELECT id, statement_id, feedback_text, created_at
 		FROM feedback
 		WHERE statement_id = $1
+		LIMIT 1
 	`, statementID).Scan(&f.ID, &f.StatementID, &f.FeedbackText, &f.CreatedAt)
 	if err != nil {
-		return feedback.Feedback{}, fmt.Errorf("Error querying feedback: %v", err)
+		return feedback.Feedback{}, fmt.Errorf("Error querying feedback for statement ID %d: %v", statementID, err)
 	}
 
 	return f, nil
@@ -111,4 +112,24 @@ func GetFeedbackBySID(statementID int) (feedback.Feedback, error) {
 func DeleteFeedback(id string) error {
 	_, err := database.GetConnection().Exec(`DELETE FROM feedback WHERE id = $1`, id)
 	return err
+}
+
+func GetAllFeedbackByUserID(userID int) ([]feedback.Feedback, error) {
+	var feedbacks []feedback.Feedback
+	rows, err := database.GetConnection().Query(`SELECT * FROM feedback WHERE user_id = $1`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("Error querying feedback: %v", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var f feedback.Feedback
+		err := rows.Scan(&f.ID, &f.StatementID, &f.FeedbackText, &f.CreatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("Error scanning feedback row: %v", err)
+		}
+		feedbacks = append(feedbacks, f)
+	}
+
+	return feedbacks, nil
 }

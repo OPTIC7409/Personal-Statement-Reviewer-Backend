@@ -30,7 +30,8 @@ func SendResponse(w http.ResponseWriter, response any, statusCode int) {
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(response)
+
+	// Only write the response once
 	_, err = w.Write(responseMarshal)
 	if err != nil {
 		pterm.Error.Println("Error writing to HTTP: ", err)

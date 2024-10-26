@@ -6,9 +6,10 @@ import (
 )
 
 func GetUserStatements(userID int) ([]statement.PersonalStatement, error) {
+
 	var statements []statement.PersonalStatement
 	rows, err := database.GetConnection().Query(`
-		SELECT * FROM personal_statements WHERE user_id = $1
+		SELECT id, user_id, content, created_at FROM personal_statements WHERE user_id = $1
 	`, userID)
 	if err != nil {
 		return nil, err

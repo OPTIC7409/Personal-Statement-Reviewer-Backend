@@ -16,7 +16,7 @@ type UserProfile struct {
 	UserID            int       `json:"user_id"`
 	Bio               string    `json:"bio,omitempty"`
 	ProfilePictureURL string    `json:"profile_picture_url,omitempty"`
-	Preferences       string    `json:"preferences,omitempty"` // You might want to use a JSON type here depending on your use case.
+	Preferences       string    `json:"preferences,omitempty"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
 }
