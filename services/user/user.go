@@ -2,7 +2,9 @@ package user
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strconv"
 
 	"psr/database/queries"
 	"psr/types/user"
@@ -19,17 +21,33 @@ func NewHandler() *Handler {
 }
 
 func (h *Handler) RegisterRoutes(router *mux.Router) {
-	router.HandleFunc("/users/me", http.HandlerFunc(h.GetUser)).Methods("GET")
-	router.HandleFunc("/users/me", http.HandlerFunc(h.UpdateUser)).Methods("PUT")
+	router.HandleFunc("/users/me/{id}", http.HandlerFunc(h.GetUser)).Methods("GET")
+	router.HandleFunc("/users/me/{id}", http.HandlerFunc(h.UpdateUser)).Methods("PUT")
 }
 
 func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("id").(int)
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	if id == "" {
+		ReturnModule.SendResponse(w, "User ID not found in context", http.StatusBadRequest)
+		return
+	}
+
+	userID, err := strconv.Atoi(id)
+	if err != nil {
+		ReturnModule.SendResponse(w, "Invalid user ID type", http.StatusBadRequest)
+		return
+	}
+
 	userProfile, err := queries.GetUserProfile(userID)
 	if err != nil {
+		fmt.Printf("Error getting user profile: %v\n", err)
 		ReturnModule.SendResponse(w, "Failed to retrieve user profile", http.StatusInternalServerError)
 		return
 	}
+
+	// Ensure the response is formatted correctly
 	ReturnModule.SendResponse(w, userProfile, http.StatusOK)
 }
 

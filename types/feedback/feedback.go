@@ -1,15 +1,18 @@
 package feedback
 
-import "time"
+import (
+	aidetection "psr/types/aidetection"
+	"time"
+)
 
 type Feedback struct {
-	ID           int       `json:"id"`
-	StatementID  int       `json:"statement_id"`
-	FeedbackText string    `json:"feedback_text"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID           int          `json:"id"`
+	StatementID  int          `json:"statement_id"`
+	FeedbackText FeedbackText `json:"feedback_text"`
+	CreatedAt    time.Time    `json:"created_at"`
 }
 
-type FeedbackResponse struct {
+type FeedbackText struct {
 	Clarity struct {
 		Rating   int    `json:"rating"`
 		Feedback string `json:"feedback"`
@@ -34,4 +37,9 @@ type FeedbackResponse struct {
 		Rating   int    `json:"rating"`
 		Feedback string `json:"feedback"`
 	} `json:"overall_impression"`
+}
+
+type CombinedResponse struct {
+	Feedback    FeedbackText                  `json:"feedback"`
+	AIDetection aidetection.AIDetectionResult `json:"ai_detection"`
 }

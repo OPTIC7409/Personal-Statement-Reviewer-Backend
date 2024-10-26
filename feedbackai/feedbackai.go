@@ -10,7 +10,7 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-func GenerateFeedback(personalStatement string) (feedback.FeedbackResponse, error) {
+func GenerateFeedback(personalStatement string) (feedback.FeedbackText, error) {
 	client := openai.NewClient("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")
 
 	prompt := fmt.Sprintf(`Analyze the following personal statement and provide detailed feedback on these aspects:
@@ -49,30 +49,30 @@ Personal Statement:
 	)
 
 	if err != nil {
-		return feedback.FeedbackResponse{}, fmt.Errorf("OpenAI API error: %v", err)
+		return feedback.FeedbackText{}, fmt.Errorf("OpenAI API error: %v", err)
 	}
 
 	jsonResponse := resp.Choices[0].Message.Content
 
-	var feedbackResponse feedback.FeedbackResponse
+	var feedbackResponse feedback.FeedbackText
 	err = json.Unmarshal([]byte(jsonResponse), &feedbackResponse)
 	if err != nil {
 		// If parsing fails, try to extract JSON from the response
 		err = parsing.ExtractJSONToStruct(jsonResponse, &feedbackResponse)
 		if err != nil {
-			return feedback.FeedbackResponse{}, fmt.Errorf("Error extracting JSON: %v\nRaw response: %s", err, jsonResponse)
+			return feedback.FeedbackText{}, fmt.Errorf("Error extracting JSON: %v\nRaw response: %s", err, jsonResponse)
 		}
 	}
 
 	// Validate the parsed response
 	if !isValidFeedbackResponse(feedbackResponse) {
-		return feedback.FeedbackResponse{}, fmt.Errorf("Invalid response format from OpenAI API")
+		return feedback.FeedbackText{}, fmt.Errorf("Invalid response format from OpenAI API")
 	}
 
 	return feedbackResponse, nil
 }
 
-func isValidFeedbackResponse(fr feedback.FeedbackResponse) bool {
+func isValidFeedbackResponse(fr feedback.FeedbackText) bool {
 	return fr.Clarity.Rating != 0 &&
 		fr.Structure.Rating != 0 &&
 		fr.GrammarSpelling.Rating != 0 &&

@@ -1,6 +1,7 @@
 package queries
 
 import (
+	"errors"
 	"psr/database"
 	"psr/types/user"
 )
@@ -19,12 +20,14 @@ func GetUserByEmail(email string) (user.User, error) {
 	`, email).Scan(&user.ID, &user.Name, &user.Email, &user.PasswordHash)
 	return user, err
 }
-
 func GetUserProfile(userID int) (user.UserProfile, error) {
+	if userID <= 0 {
+		return user.UserProfile{}, errors.New("user ID must be greater than zero")
+	}
 	var userProfile user.UserProfile
-	err := database.GetConnection().QueryRow(`
-		SELECT * FROM user_profiles WHERE user_id = $1
-	`, userID).Scan(&userProfile.ID, &userProfile.UserID, &userProfile.Bio, &userProfile.ProfilePictureURL, &userProfile.Preferences)
+	query := `
+		SELECT id, user_id, bio, profile_picture_url, preferences FROM user_profiles WHERE user_id = $1`
+	err := database.GetConnection().QueryRow(query, userID).Scan(&userProfile.ID, &userProfile.UserID, &userProfile.Bio, &userProfile.ProfilePictureURL, &userProfile.Preferences)
 	return userProfile, err
 }
 
