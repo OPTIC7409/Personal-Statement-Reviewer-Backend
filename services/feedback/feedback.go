@@ -6,13 +6,14 @@ import (
 	"net/http"
 	"strconv"
 
+	aidetection "psr/ai-detection"
 	"psr/database/queries"
 	"psr/feedbackai"
+	plagiarismdetection "psr/plagiarism-detection"
 	ftypes "psr/types/feedback"
 	statement "psr/types/personal_statement"
 	stypes "psr/types/personal_statement"
 	"psr/utils/JWT"
-	"psr/winston"
 
 	"github.com/gorilla/mux"
 )
@@ -67,18 +68,24 @@ func (h *Handler) Feedback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	aiResult, err := winston.DetectAIContent(personalStatement.Content)
+	aiResult, err := aidetection.DetectAIContent(personalStatement.Content)
 	if err != nil {
 		fmt.Printf("Error detecting AI content: %v\n", err)
 		http.Error(w, "Failed to detect AI content", http.StatusInternalServerError)
 		return
 	}
 
-	plagiarismResult, err := winston.CheckPlagiarism(personalStatement.Content)
+	result, err := plagiarismdetection.CheckPlagiarism(personalStatement.Content)
 	if err != nil {
-		fmt.Printf("Error checking plagiarism: %v\n", err)
-		http.Error(w, "Failed to check plagiarism", http.StatusInternalServerError)
+		fmt.Printf("Error detecting plagiarism: %v\n", err)
+		http.Error(w, "Failed to detect plagiarism", http.StatusInternalServerError)
 		return
+	}
+
+	fmt.Printf("Plagiarism Percentage: %.2f%%\n", result.PlagiarismPercentage)
+	fmt.Println("Sources:")
+	for _, source := range result.Sources {
+		fmt.Printf("- %s: %.2f%%\n", source.URL, source.Percent)
 	}
 
 	// Save AI result
@@ -102,11 +109,10 @@ func (h *Handler) Feedback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to save feedback", http.StatusInternalServerError)
 		return
 	}
-
 	combinedResponse := ftypes.CombinedResponse{
 		Feedback:    feedbackResponse,
 		AIDetection: aiResult,
-		Plagiarism:  plagiarismResult,
+		Plagiarism:  *result,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

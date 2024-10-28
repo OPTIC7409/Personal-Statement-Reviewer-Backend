@@ -6,6 +6,7 @@ import (
 	"psr/services/feedback"
 	"psr/services/revision"
 	"psr/services/statements"
+	stripeendpoint "psr/services/stripe"
 	"psr/services/user"
 
 	"github.com/gorilla/mux"
@@ -35,5 +36,8 @@ func (rh *RouteHandler) RegisterRoutes(router *mux.Router) {
 
 	statementHandler := statements.NewHandler()
 	statementHandler.RegisterRoutes(router)
+
+	stripeHandler := stripeendpoint.NewHandler()
+	stripeHandler.RegisterRoutes(router)
 
 }

@@ -64,6 +64,7 @@ require (
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/sashabaranov/go-openai v1.32.3 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
+	github.com/stripe/stripe-go/v72 v72.122.0 // indirect
 	github.com/supertokens/supertokens-golang v0.25.1 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go.opencensus.io v0.24.0 // indirect

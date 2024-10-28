@@ -7,6 +7,7 @@ import (
 
 	"psr/database"
 	routes "psr/services"
+	"psr/stripe"
 	openai "psr/utils/ai/openai"
 	utils "psr/utils/supertokens"
 
@@ -43,6 +44,7 @@ func (s *APIServer) Run() error {
 	routeHandler.RegisterRoutes(subrouter)
 
 	go openai.Init()
+	go stripe.InitStripe()
 	fmt.Println("Listening on", s.addr)
 	return http.ListenAndServe(s.addr, corsMiddleware(
 		supertokens.Middleware(router)))
